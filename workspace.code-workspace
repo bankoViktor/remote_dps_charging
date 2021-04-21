@@ -1,0 +1,26 @@
+{
+	"folders": [
+		{
+			"path": "Controller"
+		},
+		{
+			"path": "BlynkClient"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"array": "cpp",
+			"string": "cpp",
+			"functional": "cpp",
+			"istream": "cpp",
+			"initializer_list": "cpp",
+			"*.tcc": "cpp",
+			"ostream": "cpp",
+			"random": "cpp",
+			"sstream": "cpp",
+			"tuple": "cpp",
+			"type_traits": "cpp",
+			"utility": "cpp"
+		}
+	}
+}
