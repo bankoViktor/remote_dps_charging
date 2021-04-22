@@ -8,44 +8,44 @@
 
 
 #include <Arduino.h>
-#include "../../commands.h"
+#include "../../Shared/include/commands.h"
 
 
-#define UART_SPEED                  9600                // скорость UART (в бодах)
+#define UART_SPEED                  9600                    // скорость UART (в бодах)
 #define KEY_WORD_STATUS             CMD_STATUS 
 
 // --------------------------------------------------------------------------------
 
-#define KEY_WORD_0_ON               CMD_SELECT_DPS_2    // ключевое слово для включение режима
-#define KEY_WORD_0_OFF              CMD_SELECT_DPS_1    // ключевое слово для выключения режима
-#define LED1_0_PIN                  11                  // номер вывода светодиода
-#define LED2_0_PIN                  12                  // номер вывода светодиода
-#define RELAY_0_PIN                 13                  // номер вывода реле
-//#define BUTTON_0_PIN                                    // номер вывода кнопки
+#define KEY_WORD_0_ON               CMD_SELECT_DPS_2        // ключевое слово для включение режима
+#define KEY_WORD_0_OFF              CMD_SELECT_DPS_1        // ключевое слово для выключения режима
+#define LED1_0_PIN                  11                      // номер вывода светодиода
+#define LED2_0_PIN                  12                      // номер вывода светодиода
+#define RELAY_0_PIN                 13                      // номер вывода реле
+//#define BUTTON_0_PIN                                        // номер вывода кнопки
 
 // --------------------------------------------------------------------------------
 
-#define KEY_WORD_1_ON               CMD_POWER_ON        // ключевое слово для включение режима
-#define KEY_WORD_1_OFF              CMD_POWER_OFF       // ключевое слово для выключения режима
-#define LED_1_PIN                   9                   // номер вывода светодиода
-#define RELAY_1_PIN                 10                  // номер вывода реле
-#define BUTTON_1_PIN                4                   // номер вывода кнопки
+#define KEY_WORD_1_ON               CMD_POWER_ON            // ключевое слово для включение режима
+#define KEY_WORD_1_OFF              CMD_POWER_OFF           // ключевое слово для выключения режима
+#define LED_1_PIN                   9                       // номер вывода светодиода
+#define RELAY_1_PIN                 10                      // номер вывода реле
+#define BUTTON_1_PIN                4                       // номер вывода кнопки
 
 // --------------------------------------------------------------------------------
 
-#define KEY_WORD_2_ON               CMD_CHARGING_1_ON   // ключевое слово для включение режима
-#define KEY_WORD_2_OFF              CMD_CHARGING_1_OFF  // ключевое слово для выключения режима
-#define LED_2_PIN                   7                   // номер вывода светодиода
-#define RELAY_2_PIN                 8                   // номер вывода реле
-#define BUTTON_2_PIN                3                   // номер вывода кнопки
+#define KEY_WORD_2_ON               CMD_ACCUMULATOR_1_ON    // ключевое слово для включение режима
+#define KEY_WORD_2_OFF              CMD_ACCUMULATOR_1_OFF   // ключевое слово для выключения режима
+#define LED_2_PIN                   7                       // номер вывода светодиода
+#define RELAY_2_PIN                 8                       // номер вывода реле
+#define BUTTON_2_PIN                3                       // номер вывода кнопки
 
 // --------------------------------------------------------------------------------
 
-#define KEY_WORD_3_ON               CMD_CHARGING_2_ON   // ключевое слово для включение режима
-#define KEY_WORD_3_OFF              CMD_CHARGING_2_OFF  // ключевое слово для выключения режима
-#define LED_3_PIN                   5                   // номер вывода светодиода
-#define RELAY_3_PIN                 6                   // номер вывода реле
-#define BUTTON_3_PIN                2                   // номер вывода кнопки
+#define KEY_WORD_3_ON               CMD_ACCUMULATOR_2_ON    // ключевое слово для включение режима
+#define KEY_WORD_3_OFF              CMD_ACCUMULATOR_2_OFF   // ключевое слово для выключения режима
+#define LED_3_PIN                   5                       // номер вывода светодиода
+#define RELAY_3_PIN                 6                       // номер вывода реле
+#define BUTTON_3_PIN                2                       // номер вывода кнопки
 
 /* Private Types -------------------------------------------------------------- */
 

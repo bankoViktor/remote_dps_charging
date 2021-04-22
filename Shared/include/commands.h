@@ -3,15 +3,15 @@
 
 // Command Requests
 
+#define CMD_STATUS                  "status"
 #define CMD_POWER_ON                "fanon"
 #define CMD_POWER_OFF               "fanoff"
-#define CMD_SELECT_DPS_1            "dps1"      // DPS 5020
-#define CMD_SELECT_DPS_2            "dps2"      // DPS 5015
-#define CMD_STATUS                  "status"
-#define CMD_CHARGING_1_ON           "block1on"
-#define CMD_CHARGING_1_OFF          "block1off"
-#define CMD_CHARGING_2_ON           "block2on"
-#define CMD_CHARGING_2_OFF          "block2off"
+#define CMD_SELECT_DPS_1            "dps1"          // DPS 5020
+#define CMD_SELECT_DPS_2            "dps2"          // DPS 5015
+#define CMD_ACCUMULATOR_1_ON        "block1on"
+#define CMD_ACCUMULATOR_1_OFF       "block1off"
+#define CMD_ACCUMULATOR_2_ON        "block2on"
+#define CMD_ACCUMULATOR_2_OFF       "block2off"
 
 // Command Responces
 

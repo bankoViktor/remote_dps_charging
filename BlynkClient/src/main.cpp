@@ -1,20 +1,29 @@
+/*
+ * Blynk-клиент
+ *
+ * Версия:    0.1
+ * Дата:      22.04.2021
+ * Автор:     bankviktor14@gmail.com
+ */
+
 #include <Arduino.h>
 #include <BlynkSimpleEsp8266.h>
 #include <ModbusMaster.h>
 #include "dps.h"
 #include "secret.h"
+#include "../../Shared/include/commands.h"
+
 
 #if !defined(SECRET__H) || !defined(AUTH) || !defined(SSID) || !defined(PASS)
 #error "secret.h file not found. Create the file and define AUTH/SSID/PASS in file."  
 #endif
 
-// DPS 5020 0-50V  0-20A
-// DPS 5015 0-50V  0-15A
 
 /* Private Defines ------------------------------------------------------------ */
 
 #define UART_SPEED                  9600  // скорость соединения
 #define DPS_UPDATE_INTERVAL_MS      1000  // ms   
+#define SELECT_VOLTAGE_MAX_LOWER    2     // ниже на 2V
 
 // Virtual Pins 
 
@@ -27,49 +36,18 @@
 #define PIN_CURRENT_OUT             V6    // ток выходной
 #define PIN_SELECT_VOLTAGE          V7    // установка напряжения выходного
 #define PIN_SELECT_CURRENT          V8    // установка ток выходного
-#define PIN_CHARGING_1_LED          V9    // индикатор включения зарядки устройства #1
-#define PIN_CHARGING_1              V10   // включение зарядки устройства #1
-#define PIN_CHARGING_2_LED          V11   // индикатор включения зарядки устройства #2
-#define PIN_CHARGING_2              V12   // включение зарядки устройства #2
-#define PIN_ACCUMULATOR_1_LED       V13   // индикатор подключения аккумулятора к устройству #1
-#define PIN_ACCUMULATOR_1           V14   // подключение аккумулятора к устройству #1
-#define PIN_ACCUMULATOR_2_LED       V15   // индикатор подключения аккумулятора к устройству #2
-#define PIN_ACCUMULATOR_2           V16   // подключение аккумулятора к устройству #2
+#define PIN_CHARGING_LED            V9    // индикатор включения зарядки устройства 
+#define PIN_CHARGING                V10   // включение зарядки устройства
+#define PIN_ACCUMULATOR_LED         V11   // индикатор подключения аккумулятора к устройству
+#define PIN_ACCUMULATOR             V12   // подключение аккумулятора к устройству
 #define PIN_TERMINAL                V20   // Лог-терминал
-
-// Command Requests
-
-#define CMD_POWER_ON                "fanon"
-#define CMD_POWER_OFF               "fanoff"
-#define CMD_SELECT_DPS_1            "dps1"      // DPS 5020
-#define CMD_SELECT_DPS_2            "dps2"      // DPS 5015
-#define CMD_STATUS                  "status"
-#define CMD_CHARGING_1_ON           "block1on"
-#define CMD_CHARGING_1_OFF          "block1off"
-#define CMD_CHARGING_2_ON           "block2on"
-#define CMD_CHARGING_2_OFF          "block2off"
-
-// Command Responces
-
-#define RESPONCE_POWER_ON           "FAN:ON"
-#define RESPONCE_POWER_OFF          "FAN:OFF"
-#define RESPONCE_SELECT_DEVICE_1    "UART:DPS1"
-#define RESPONCE_SELECT_DEVICE_2    "UART:DPS2"
-#define RESPONCE_BLOCK_1_ON         "BLOCK_1:ON"
-#define RESPONCE_BLOCK_1_OFF        "BLOCK_1:OFF"
-#define RESPONCE_BLOCK_2_ON         "BLOCK_2:ON"
-#define RESPONCE_BLOCK_2_OFF        "BLOCK_2:OFF"
-
-
-#define DPS_1_CURRENT_MAX           20 // A
-#define DPS_2_CURRENT_MAX           15 // A
 
 
 /* Private Types -------------------------------------------------------------- */
 
 enum class DeviceIndex {
-  DPS_1 = 1,  // DPS 5015
-  DPS_2 = 2,  // DPS 5020
+  DPS_1 = 1,  // DPS 5020 
+  DPS_2 = 2,  // DPS 5015
 };
 
 struct DPSData {
@@ -89,29 +67,31 @@ struct DPSData {
 /* Private Variables ---------------------------------------------------------- */
 
 int fPower = 0;                                   // флаг питания устройств
-int fCharging_1 = 0;                              // 
-int fCharging_2 = 0;                              // 
+int fCharging_1 = 0;                              // флаг зарядки устройства #1
+int fCharging_2 = 0;                              // флаг зарядки устройства #2
 int fAccumulator_1 = 0;                           // флаг подключения аккумулятора к устройству #1
 int fAccumulator_2 = 0;                           // флаг подключения аккумулятора к устройству #2
-DeviceIndex curDev = DeviceIndex::DPS_1;          // Текущие устройство
+DeviceIndex curDev = DeviceIndex::DPS_1;          // текущие устройство
 WidgetTerminal terminal(PIN_TERMINAL);
 WidgetLED ledPowerSupply(PIN_POWER_SUPPLY_LED);
-WidgetLED ledCharging_1(PIN_CHARGING_1_LED);
-WidgetLED ledCharging_2(PIN_CHARGING_2_LED);
-WidgetLED ledAccumulator_1(PIN_ACCUMULATOR_1_LED);
-WidgetLED ledAccumulator_2(PIN_ACCUMULATOR_2_LED);
-DPSData dps1;
-DPSData dps2;
-ModbusMaster modBus; // ModBus соединение
+WidgetLED ledCharging(PIN_CHARGING_LED);
+WidgetLED ledAccumulator(PIN_ACCUMULATOR_LED);
+DPSData data;
+ModbusMaster modBus;                              // ModBus соединение
 BlynkTimer timer;
+
 
 /* Private Function Declarations ---------------------------------------------- */
 
 void selectDevice(DeviceIndex dev);
 void parseCmdResponce(const String &resp);
 void updateDataCallback();
+void toggleCharging(int *pfCharging);
+void updateLed(const int * pfAccumulator, const int * pfCharging);
+void printError(char letter, uint8_t errorCode);
 
-/* Callback Functions --------------------------------------------------------- */
+
+/* Private Callback Functions ------------------------------------------------- */
 
 // включение питания
 BLYNK_WRITE(PIN_POWER_SUPPLY)
@@ -133,15 +113,14 @@ BLYNK_WRITE(PIN_SELECT_DEVICE)
 // напряжение входное
 BLYNK_READ(PIN_VOLTAGE_IN)
 {
-  DPSData &data = curDev == DeviceIndex::DPS_1 ? dps1 : dps2;
   double value = (double)data.voltage_in / 100;
   Blynk.virtualWrite(PIN_VOLTAGE_IN, value);
+  Blynk.setProperty(PIN_SELECT_VOLTAGE, F("max"), (int)(value - SELECT_VOLTAGE_MAX_LOWER));
 }
 
 // напряжение выход/аккум
 BLYNK_READ(PIN_VOLTAGE_OUT_OR_ACC)
 {
-  DPSData &data = curDev == DeviceIndex::DPS_1 ? dps1 : dps2;
   double value = (double)data.voltage_out / 100;
   Blynk.virtualWrite(PIN_VOLTAGE_OUT_OR_ACC, value);
 }
@@ -149,15 +128,15 @@ BLYNK_READ(PIN_VOLTAGE_OUT_OR_ACC)
 // мощность
 BLYNK_READ(PIN_POWER)
 {
-  DPSData &data = curDev == DeviceIndex::DPS_1 ? dps1 : dps2;
-  double value = data.power_out < 1000 ? ((double)data.power_out / 100) : ((double)data.power_out / 10);
+  double value = data.power_out < 1000 
+    ? ((double)data.power_out / 100) 
+    : ((double)data.power_out / 10);
   Blynk.virtualWrite(PIN_POWER, value);
 }
 
 // ток выходной
 BLYNK_READ(PIN_CURRENT_OUT)
 {
-  DPSData &data = curDev == DeviceIndex::DPS_1 ? dps1 : dps2;
   double value = (double)data.current_out / 100;
   Blynk.virtualWrite(PIN_CURRENT_OUT, value);
 }
@@ -166,53 +145,48 @@ BLYNK_READ(PIN_CURRENT_OUT)
 BLYNK_WRITE(PIN_SELECT_VOLTAGE)
 {
   int value = param.asInt();
-  modBus.writeSingleRegister(DPS_REG_VOLTAGE_SET, value * 100);
+  uint8_t result = modBus.writeSingleRegister(DPS_REG_VOLTAGE_SET, value * 100);
+  if (result != modBus.ku8MBSuccess)
+  {
+    printError('A', result);
+  }
 }
 
 // установка тока выходного
 BLYNK_WRITE(PIN_SELECT_CURRENT)
 {
   int value = param.asInt();
-  modBus.writeSingleRegister(DPS_REG_CURRENT_SET, value * 100);
-}
-
-// включение/выключение зарядки устройства #1
-BLYNK_WRITE(PIN_CHARGING_1)
-{
-  int stage = param.asInt();
-  if (stage)
+  uint8_t result = modBus.writeSingleRegister(DPS_REG_CURRENT_SET, value * 100);
+  if (result != modBus.ku8MBSuccess)
   {
-    
+    printError('B', result);
   }
 }
 
-// включение/выключение зарядки устройства #2
-BLYNK_WRITE(PIN_CHARGING_2)
+// включение/выключение зарядки
+BLYNK_WRITE(PIN_CHARGING)
 {
   int stage = param.asInt();
   if (stage)
   {
-    
+    toggleCharging(curDev == DeviceIndex::DPS_1 ? &fCharging_1 : &fCharging_2);
   }
 }
 
-// подключение/отключение аккумулятора к устройству #1
-BLYNK_WRITE(PIN_ACCUMULATOR_1)
+// подключение/отключение аккумулятора к устройству
+BLYNK_WRITE(PIN_ACCUMULATOR)
 {
   int stage = param.asInt();
   if (stage)
   {
-    Serial.println(fAccumulator_1 ? F(RESPONCE_BLOCK_1_OFF) : F(RESPONCE_BLOCK_1_ON));
-  }
-}
-
-// подключение/отключение аккумулятора к устройству #2
-BLYNK_WRITE(PIN_ACCUMULATOR_2)
-{
-  int stage = param.asInt();
-  if (stage)
-  {
-    Serial.println(fAccumulator_2 ? F(RESPONCE_BLOCK_2_OFF) : F(RESPONCE_BLOCK_2_ON));
+    if (curDev == DeviceIndex::DPS_1)
+    {
+      Serial.println(fAccumulator_1 ? F(CMD_ACCUMULATOR_1_OFF) : F(CMD_ACCUMULATOR_1_ON));
+    }
+    else
+    {
+      Serial.println(fAccumulator_2 ? F(CMD_ACCUMULATOR_2_OFF) : F(CMD_ACCUMULATOR_2_ON));
+    }
   }
 }
 
@@ -274,9 +248,7 @@ void loop()
 
 void updateDataCallback()
 {
-  DPSData &data = curDev == DeviceIndex::DPS_1 ? dps1 : dps2;
-  
-  auto result = modBus.readHoldingRegisters(0x0000, 10);
+  auto result = modBus.readHoldingRegisters(DPS_REG_VOLTAGE_SET, 10);
   if (result == modBus.ku8MBSuccess)
   {
     for (int i = 0; i < 10; i++)
@@ -286,13 +258,11 @@ void updateDataCallback()
   }
   else
   {
-    terminal.print("modBus error code ");
-    terminal.println(result);
-    terminal.flush();
+    printError('C', result);
   }
 }
 
-// Парсит ответ на команду и меняет состояние
+
 void parseCmdResponce(const String &resp)
 {
   if (resp == F(RESPONCE_POWER_ON)) 
@@ -310,41 +280,77 @@ void parseCmdResponce(const String &resp)
     curDev = DeviceIndex::DPS_1;
     Blynk.virtualWrite(PIN_SELECT_DEVICE, (int)curDev);
     Blynk.setProperty(PIN_SELECT_CURRENT, F("max"), DPS_1_CURRENT_MAX);
-    if (dps1.current_set < DPS_1_CURRENT_MAX * 100)
+    if (data.current_set < DPS_1_CURRENT_MAX * 100)
     {
-      modBus.writeSingleRegister(DPS_REG_CURRENT_SET, DPS_1_CURRENT_MAX * 100);
+      uint8_t result = modBus.writeSingleRegister(DPS_REG_CURRENT_SET, DPS_1_CURRENT_MAX * 100);
+      if (result != modBus.ku8MBSuccess)
+      {
+        printError('D', result);
+      }
     }
+    updateLed(&fAccumulator_1, &fCharging_1);
   }
   else if (resp == F(RESPONCE_SELECT_DEVICE_2)) 
   {
     curDev = DeviceIndex::DPS_2;
     Blynk.virtualWrite(PIN_SELECT_DEVICE, (int)curDev);
     Blynk.setProperty(PIN_SELECT_CURRENT, F("max"), DPS_2_CURRENT_MAX);
-    if (dps2.current_set < DPS_2_CURRENT_MAX * 100)
+    if (data.current_set < DPS_2_CURRENT_MAX * 100)
     {
-      modBus.writeSingleRegister(DPS_REG_CURRENT_SET, DPS_2_CURRENT_MAX * 100);
+      uint8_t result = modBus.writeSingleRegister(DPS_REG_CURRENT_SET, DPS_2_CURRENT_MAX * 100);
+      if (result != modBus.ku8MBSuccess)
+      {
+        printError('E', result);
+      }
     }
+    updateLed(&fAccumulator_2, &fCharging_2);
   }
   else if (resp == F(RESPONCE_BLOCK_1_ON)) 
   {
     fAccumulator_1 = 1;
-    ledAccumulator_1.on();
+    if (curDev == DeviceIndex::DPS_1)
+    {
+      ledAccumulator.on();
+    }
   }
   else if (resp == F(RESPONCE_BLOCK_1_OFF)) 
   {
     fAccumulator_1 = 0;
-    ledAccumulator_1.off();
+    if (curDev == DeviceIndex::DPS_1)
+    {
+      ledAccumulator.off();
+    }
   }
   else if (resp == F(RESPONCE_BLOCK_2_ON)) 
   {
     fAccumulator_2 = 1;
-    ledAccumulator_2.on();
+    if (curDev == DeviceIndex::DPS_2)
+    {
+      ledAccumulator.on();
+    }
   }
   else if (resp == F(RESPONCE_BLOCK_2_OFF)) 
   {
     fAccumulator_2 = 0;
-    ledAccumulator_2.off();
+    if (curDev == DeviceIndex::DPS_2)
+    {
+      ledAccumulator.off();
+    }
   }
+}
+
+
+void updateLed(const int * pfAccumulator, const int * pfCharging)
+{
+  if (*pfAccumulator) 
+    ledAccumulator.on(); 
+  else 
+    ledAccumulator.off();
+
+  if (*pfCharging) 
+    ledCharging.on(); 
+  else 
+    ledCharging.off();
 }
 
 
@@ -367,4 +373,34 @@ void selectDevice(DeviceIndex dev)
   }
 
   Serial.println(cmd);
+}
+
+
+void toggleCharging(int *pfCharging)
+{
+  uint16_t newValue = !(*pfCharging);
+  uint8_t result = modBus.writeSingleRegister(DPS_REG_ONOFF, newValue);
+  if (result == modBus.ku8MBSuccess) 
+  {
+    *pfCharging = newValue;
+    if (newValue) 
+    {
+      ledCharging.on();
+    }
+    else
+    {
+      ledCharging.off();
+    }
+  }
+  else
+  {
+    printError('F', result);
+  }
+}
+
+
+void printError(char letter, uint8_t errorCode)
+{
+  terminal.printf("ModBus Error %c-%X\n", letter, errorCode);
+  terminal.flush();
 }
