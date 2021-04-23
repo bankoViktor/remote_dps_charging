@@ -256,10 +256,6 @@ void updateDataCallback()
       *((uint16_t*)&data + i) = modBus.getResponseBuffer(i);
     }
   }
-  else
-  {
-    printError('C', result);
-  }
 }
 
 
@@ -305,7 +301,7 @@ void parseCmdResponce(const String &resp)
     }
     updateLed(&fAccumulator_2, &fCharging_2);
   }
-  else if (resp == F(RESPONCE_BLOCK_1_ON)) 
+  else if (resp == F(RESPONCE_ACCUMULATOR_1_ON)) 
   {
     fAccumulator_1 = 1;
     if (curDev == DeviceIndex::DPS_1)
@@ -313,7 +309,7 @@ void parseCmdResponce(const String &resp)
       ledAccumulator.on();
     }
   }
-  else if (resp == F(RESPONCE_BLOCK_1_OFF)) 
+  else if (resp == F(RESPONCE_ACCUMULATOR_1_OFF)) 
   {
     fAccumulator_1 = 0;
     if (curDev == DeviceIndex::DPS_1)
@@ -321,7 +317,7 @@ void parseCmdResponce(const String &resp)
       ledAccumulator.off();
     }
   }
-  else if (resp == F(RESPONCE_BLOCK_2_ON)) 
+  else if (resp == F(RESPONCE_ACCUMULATOR_2_ON)) 
   {
     fAccumulator_2 = 1;
     if (curDev == DeviceIndex::DPS_2)
@@ -329,7 +325,7 @@ void parseCmdResponce(const String &resp)
       ledAccumulator.on();
     }
   }
-  else if (resp == F(RESPONCE_BLOCK_2_OFF)) 
+  else if (resp == F(RESPONCE_ACCUMULATOR_2_OFF)) 
   {
     fAccumulator_2 = 0;
     if (curDev == DeviceIndex::DPS_2)
