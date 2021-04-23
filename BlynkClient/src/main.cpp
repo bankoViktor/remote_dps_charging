@@ -40,6 +40,8 @@
 #define PIN_CHARGING                V10   // включение зарядки устройства
 #define PIN_ACCUMULATOR_LED         V11   // индикатор подключения аккумулятора к устройству
 #define PIN_ACCUMULATOR             V12   // подключение аккумулятора к устройству
+#define PIN_DEVICE_1_LED            V13   // индикатор устройства #1
+#define PIN_DEVICE_2_LED            V14   // индикатор устройства #2
 #define PIN_TERMINAL                V20   // Лог-терминал
 
 
@@ -76,6 +78,8 @@ WidgetTerminal terminal(PIN_TERMINAL);
 WidgetLED ledPowerSupply(PIN_POWER_SUPPLY_LED);
 WidgetLED ledCharging(PIN_CHARGING_LED);
 WidgetLED ledAccumulator(PIN_ACCUMULATOR_LED);
+WidgetLED ledDevice_1(PIN_DEVICE_1_LED);
+WidgetLED ledDevice_2(PIN_DEVICE_2_LED);
 DPSData data;
 ModbusMaster modBus;                              // ModBus соединение
 BlynkTimer timer;
@@ -87,8 +91,10 @@ void selectDevice(DeviceIndex dev);
 void parseCmdResponce(const String &resp);
 void updateDataCallback();
 void toggleCharging(int *pfCharging);
-void updateLed(const int * pfAccumulator, const int * pfCharging);
+void updateLeds();
 void printError(char letter, uint8_t errorCode);
+void setMaxVoltage(double max);
+void setMaxCurrent(int max);
 
 
 /* Private Callback Functions ------------------------------------------------- */
@@ -106,8 +112,11 @@ BLYNK_WRITE(PIN_POWER_SUPPLY)
 // выбор устройства
 BLYNK_WRITE(PIN_SELECT_DEVICE)
 {
-  auto devIndex = (DeviceIndex)param.asInt();
-  selectDevice(devIndex);
+  int stage = param.asInt();
+  if (stage)
+  {
+    Serial.println(curDev == DeviceIndex::DPS_1 ? F(CMD_SELECT_DPS_2) : F(CMD_SELECT_DPS_1));
+  }
 }
 
 // напряжение входное
@@ -115,7 +124,7 @@ BLYNK_READ(PIN_VOLTAGE_IN)
 {
   double value = (double)data.voltage_in / 100;
   Blynk.virtualWrite(PIN_VOLTAGE_IN, value);
-  Blynk.setProperty(PIN_SELECT_VOLTAGE, F("max"), (int)(value - SELECT_VOLTAGE_MAX_LOWER));
+  setMaxVoltage(value);
 }
 
 // напряжение выход/аккум
@@ -206,8 +215,11 @@ void setup()
   Blynk.begin(AUTH, SSID, PASS);
 
   // Инициализация
-  Blynk.virtualWrite(PIN_SELECT_DEVICE, (int)curDev);
   ledPowerSupply.off();
+  ledDevice_1.on();
+  ledDevice_2.off();
+  ledCharging.off();
+  ledAccumulator.off();
 
   // Blynk терминал
   terminal.clear();
@@ -274,101 +286,84 @@ void parseCmdResponce(const String &resp)
   else if (resp == F(RESPONCE_SELECT_DEVICE_1)) 
   {
     curDev = DeviceIndex::DPS_1;
-    Blynk.virtualWrite(PIN_SELECT_DEVICE, (int)curDev);
-    Blynk.setProperty(PIN_SELECT_CURRENT, F("max"), DPS_1_CURRENT_MAX);
-    if (data.current_set < DPS_1_CURRENT_MAX * 100)
-    {
-      uint8_t result = modBus.writeSingleRegister(DPS_REG_CURRENT_SET, DPS_1_CURRENT_MAX * 100);
-      if (result != modBus.ku8MBSuccess)
-      {
-        printError('D', result);
-      }
-    }
-    updateLed(&fAccumulator_1, &fCharging_1);
+    updateLeds();
+    setMaxVoltage(DPS_1_CURRENT_MAX);
   }
   else if (resp == F(RESPONCE_SELECT_DEVICE_2)) 
   {
     curDev = DeviceIndex::DPS_2;
-    Blynk.virtualWrite(PIN_SELECT_DEVICE, (int)curDev);
-    Blynk.setProperty(PIN_SELECT_CURRENT, F("max"), DPS_2_CURRENT_MAX);
-    if (data.current_set < DPS_2_CURRENT_MAX * 100)
-    {
-      uint8_t result = modBus.writeSingleRegister(DPS_REG_CURRENT_SET, DPS_2_CURRENT_MAX * 100);
-      if (result != modBus.ku8MBSuccess)
-      {
-        printError('E', result);
-      }
-    }
-    updateLed(&fAccumulator_2, &fCharging_2);
+    updateLeds();
+    setMaxCurrent(DPS_2_CURRENT_MAX);
   }
   else if (resp == F(RESPONCE_ACCUMULATOR_1_ON)) 
   {
     fAccumulator_1 = 1;
-    if (curDev == DeviceIndex::DPS_1)
-    {
-      ledAccumulator.on();
-    }
+    updateLeds();
   }
   else if (resp == F(RESPONCE_ACCUMULATOR_1_OFF)) 
   {
     fAccumulator_1 = 0;
-    if (curDev == DeviceIndex::DPS_1)
-    {
-      ledAccumulator.off();
-    }
+    updateLeds();
   }
   else if (resp == F(RESPONCE_ACCUMULATOR_2_ON)) 
   {
     fAccumulator_2 = 1;
-    if (curDev == DeviceIndex::DPS_2)
-    {
-      ledAccumulator.on();
-    }
+    updateLeds();
   }
   else if (resp == F(RESPONCE_ACCUMULATOR_2_OFF)) 
   {
     fAccumulator_2 = 0;
-    if (curDev == DeviceIndex::DPS_2)
-    {
-      ledAccumulator.off();
-    }
+    updateLeds();
   }
 }
 
 
-void updateLed(const int * pfAccumulator, const int * pfCharging)
+void setMaxVoltage(double max)
 {
-  if (*pfAccumulator) 
-    ledAccumulator.on(); 
-  else 
-    ledAccumulator.off();
-
-  if (*pfCharging) 
-    ledCharging.on(); 
-  else 
-    ledCharging.off();
+  Blynk.setProperty(PIN_SELECT_VOLTAGE, F("max"), (int)(max - SELECT_VOLTAGE_MAX_LOWER));
+  // if (data.current_set < max * 100)
+  // {
+  //   uint8_t result = modBus.writeSingleRegister(DPS_REG_VOLTAGE_SET, max * 100);
+  //   if (result != modBus.ku8MBSuccess)
+  //   {
+  //     printError('C', result);
+  //   }
+  // }
 }
 
 
-void selectDevice(DeviceIndex dev)
+void setMaxCurrent(int max)
 {
-  const __FlashStringHelper* cmd;
+  Blynk.setProperty(PIN_SELECT_CURRENT, F("max"), max);
+  // if (data.current_set < max * 100)
+  // {
+  //   uint8_t result = modBus.writeSingleRegister(DPS_REG_CURRENT_SET, max * 100);
+  //   if (result != modBus.ku8MBSuccess)
+  //   {
+  //     printError('D', result);
+  //   }
+  // }
+}
 
-  switch (dev)
+
+void updateLeds()
+{
+  if (curDev == DeviceIndex::DPS_1)
   {
-  case DeviceIndex::DPS_1:
-    cmd = F(CMD_SELECT_DPS_1);
-    break;
-  
-  case DeviceIndex::DPS_2:
-    cmd = F(CMD_SELECT_DPS_2);
-    break;
+    ledDevice_1.on();
+    ledDevice_2.off();
 
-  default:
-    return;
+    if (fCharging_1) ledCharging.on(); else ledCharging.off();
+    if (fAccumulator_1) ledAccumulator.on(); else ledAccumulator.off();
   }
+  else if (curDev == DeviceIndex::DPS_2)
+  {
+    ledDevice_1.off();
+    ledDevice_2.on();
 
-  Serial.println(cmd);
+    if (fCharging_2) ledCharging.on(); else ledCharging.off();
+    if (fAccumulator_2) ledAccumulator.on(); else ledAccumulator.off();
+  }
 }
 
 
@@ -390,7 +385,7 @@ void toggleCharging(int *pfCharging)
   }
   else
   {
-    printError('F', result);
+    printError('E', result);
   }
 }
 
