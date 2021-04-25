@@ -66,8 +66,8 @@ bool fAccumulator_2;
 
 void DoCommand(const String command, bool isPrint = false);
 void PrintStatus();
-void Button_Handle(int pin, BUTTON* pBtn, const __FlashStringHelper * pszCmd);
-void Button_UpdateState(int pin, BUTTON* pBtn);
+void buttonHandle(int pin, BUTTON* pBtn, const __FlashStringHelper * pszCmd);
+void buttonUpdateState(int pin, BUTTON* pBtn);
 
 
 /* Private Function Definitions ----------------------------------------------- */
@@ -128,15 +128,15 @@ void loop()
   }
 
   // Обработка кнопок режимов
-  Button_Handle(PIN_POWER_BUTTON, &Button_POWER, fPower ? F(CMD_POWER_OFF) : F(CMD_POWER_ON));                     // POWER
-  Button_Handle(PIN_ACCUMULATOR_1_BUTTON, &Button_ACCUMULATOR_1, fAccumulator_1 ? F(CMD_ACCUMULATOR_1_OFF) : F(CMD_ACCUMULATOR_1_ON));   // ACCUMULATOR 1
-  Button_Handle(PIN_ACCUMULATOR_2_BUTTON, &Button_ACCUMULATOR_2, fAccumulator_2 ? F(CMD_ACCUMULATOR_2_OFF) : F(CMD_ACCUMULATOR_2_ON));   // ACCUMULATOR 2
+  buttonHandle(PIN_POWER_BUTTON, &Button_POWER, fPower ? F(CMD_POWER_OFF) : F(CMD_POWER_ON));                     // POWER
+  buttonHandle(PIN_ACCUMULATOR_1_BUTTON, &Button_ACCUMULATOR_1, fAccumulator_1 ? F(CMD_ACCUMULATOR_1_OFF) : F(CMD_ACCUMULATOR_1_ON));   // ACCUMULATOR 1
+  buttonHandle(PIN_ACCUMULATOR_2_BUTTON, &Button_ACCUMULATOR_2, fAccumulator_2 ? F(CMD_ACCUMULATOR_2_OFF) : F(CMD_ACCUMULATOR_2_ON));   // ACCUMULATOR 2
 }
 
 
-void Button_Handle(int pin, BUTTON* pBtn, const __FlashStringHelper * pszCmd)
+void buttonHandle(int pin, BUTTON* pBtn, const __FlashStringHelper * pszCmd)
 {
-  Button_UpdateState(pin, pBtn);
+  buttonUpdateState(pin, pBtn);
   if (pBtn->fState && pBtn->fIsFirst)
   {
     DoCommand(pszCmd);
@@ -145,7 +145,7 @@ void Button_Handle(int pin, BUTTON* pBtn, const __FlashStringHelper * pszCmd)
 }
 
 
-void Button_UpdateState(int pin, BUTTON* pBtn)
+void buttonUpdateState(int pin, BUTTON* pBtn)
 {
   bool fTemp = digitalRead(pin) == 0;
   if (fTemp != pBtn->fState)

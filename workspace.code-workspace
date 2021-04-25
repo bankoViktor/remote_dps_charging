@@ -8,6 +8,9 @@
 		},
 		{
 			"path": "Shared"
+		},
+		{
+			"path": "BlynkClient_SIM800"
 		}
 	],
 	"settings": {
@@ -24,7 +27,8 @@
 			"tuple": "cpp",
 			"type_traits": "cpp",
 			"utility": "cpp",
-			"xlocale": "cpp"
+			"xlocale": "cpp",
+			"*.tpp": "cpp"
 		}
 	}
 }
