@@ -124,7 +124,10 @@ BLYNK_READ(PIN_VOLTAGE_IN)
 {
   double value = (double)data.voltage_in / 100;
   Blynk.virtualWrite(PIN_VOLTAGE_IN, value);
-  setMaxVoltage(value);
+  if (value > 0)
+  {
+    setMaxVoltage(value);
+  }
 }
 
 // напряжение выход/аккум
@@ -214,7 +217,7 @@ void setup()
   Serial.begin(UART_SPEED);
   Blynk.begin(AUTH, SSID, PASS);
 
-  // Инициализация
+
   ledPowerSupply.off();
   ledDevice_1.on();
   ledDevice_2.off();
@@ -273,6 +276,8 @@ void updateDataCallback()
 
 void parseCmdResponce(const String &resp)
 {
+  // Power
+
   if (resp == F(RESPONCE_POWER_ON)) 
   {
     fPower = 1;
@@ -283,38 +288,47 @@ void parseCmdResponce(const String &resp)
     fPower = 0;
     ledPowerSupply.off();
   }
+
+  // Select device
+  
   else if (resp == F(RESPONCE_SELECT_DEVICE_1)) 
   {
     curDev = DeviceIndex::DPS_1;
-    updateLeds();
-    setMaxVoltage(DPS_1_CURRENT_MAX);
+    ledDevice_1.on();
+    ledDevice_2.off();
+    setMaxCurrent(DPS_1_CURRENT_MAX);
   }
   else if (resp == F(RESPONCE_SELECT_DEVICE_2)) 
   {
     curDev = DeviceIndex::DPS_2;
-    updateLeds();
+    ledDevice_1.off();
+    ledDevice_2.on();
     setMaxCurrent(DPS_2_CURRENT_MAX);
   }
+
+  // Accumulator 1
+  
   else if (resp == F(RESPONCE_ACCUMULATOR_1_ON)) 
   {
     fAccumulator_1 = 1;
-    updateLeds();
   }
   else if (resp == F(RESPONCE_ACCUMULATOR_1_OFF)) 
   {
     fAccumulator_1 = 0;
-    updateLeds();
   }
+
+  // Accumulator 2
+
   else if (resp == F(RESPONCE_ACCUMULATOR_2_ON)) 
   {
     fAccumulator_2 = 1;
-    updateLeds();
   }
   else if (resp == F(RESPONCE_ACCUMULATOR_2_OFF)) 
   {
     fAccumulator_2 = 0;
-    updateLeds();
   }
+
+  updateLeds();
 }
 
 
@@ -350,16 +364,16 @@ void updateLeds()
 {
   if (curDev == DeviceIndex::DPS_1)
   {
-    ledDevice_1.on();
-    ledDevice_2.off();
+    // ledDevice_1.on();
+    // ledDevice_2.off();
 
     if (fCharging_1) ledCharging.on(); else ledCharging.off();
     if (fAccumulator_1) ledAccumulator.on(); else ledAccumulator.off();
   }
   else if (curDev == DeviceIndex::DPS_2)
   {
-    ledDevice_1.off();
-    ledDevice_2.on();
+    // ledDevice_1.off();
+    // ledDevice_2.on();
 
     if (fCharging_2) ledCharging.on(); else ledCharging.off();
     if (fAccumulator_2) ledAccumulator.on(); else ledAccumulator.off();
