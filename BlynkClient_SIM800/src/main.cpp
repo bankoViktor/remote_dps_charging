@@ -82,7 +82,7 @@ SoftwareSerial SerialAT(PIN_SIM800_RX, PIN_SIM800_TX); // RX, TX
 TinyGsm modem(SerialAT);
 ModbusMaster modBus;                              // ModBus соединение
 
-WidgetTerminal terminal(PIN_TERMINAL);
+// WidgetTerminal terminal(PIN_TERMINAL);
 WidgetLED ledPowerSupply(PIN_POWER_SUPPLY_LED);
 WidgetLED ledCharging(PIN_CHARGING_LED);
 WidgetLED ledAccumulator(PIN_ACCUMULATOR_LED);
@@ -109,8 +109,8 @@ void pinsInit();
 void updateDataCallback();
 void toggleCharging(bool *pfCharging);
 void updateLeds();
-//void setMaxVoltage(double max);
-//void setMaxCurrent(int max);
+void setMaxVoltage(double max);
+void setMaxCurrent(int max);
 void buttonHandle(int pin, BUTTON* pBtn, const __FlashStringHelper * pszCmd);
 void buttonUpdateState(int pin, BUTTON* pBtn);
 void doCommand(const String &command, bool isPrint = false);
@@ -144,10 +144,10 @@ BLYNK_READ(PIN_VOLTAGE_IN)
 {
   double value = (double)data.voltage_in / 100;
   Blynk.virtualWrite(PIN_VOLTAGE_IN, value);
-  // if (value > 0)
-  // {
-  //   setMaxVoltage(value);
-  // }
+  if (value > 0)
+  {
+    setMaxVoltage(value);
+  }
 }
 
 // напряжение выход/аккум
@@ -177,6 +177,7 @@ BLYNK_READ(PIN_CURRENT_OUT)
 BLYNK_WRITE(PIN_SELECT_VOLTAGE)
 {
   int value = param.asInt();
+  Blynk.virtualWrite(PIN_SELECT_VOLTAGE, value);
   uint8_t result = modBus.writeSingleRegister(DPS_REG_VOLTAGE_SET, value * 100);
   if (result != modBus.ku8MBSuccess)
   {
@@ -188,6 +189,7 @@ BLYNK_WRITE(PIN_SELECT_VOLTAGE)
 BLYNK_WRITE(PIN_SELECT_CURRENT)
 {
   int value = param.asInt();
+  Blynk.virtualWrite(PIN_SELECT_CURRENT, value);
   uint8_t result = modBus.writeSingleRegister(DPS_REG_CURRENT_SET, value * 100);
   if (result != modBus.ku8MBSuccess)
   {
@@ -223,11 +225,11 @@ BLYNK_WRITE(PIN_ACCUMULATOR)
 }
 
 // терминал
-BLYNK_WRITE(PIN_TERMINAL)
-{
-  String str = param.asStr();
-  Serial.println(str);
-}
+// BLYNK_WRITE(PIN_TERMINAL)
+// {
+//   String str = param.asStr();
+//   Serial.println(str);
+// }
 
 
 /* Private Function Definitions ----------------------------------------------- */
@@ -263,10 +265,10 @@ void setup()
   ledCharging.off();
   ledAccumulator.off();
 
-  // Blynk терминал
-  terminal.clear();
-  terminal.println(F("Blynk ready"));
-  terminal.flush();
+  // // Blynk терминал
+  // terminal.clear();
+  // terminal.println(F("Blynk ready"));
+  // terminal.flush();
 
   Serial.println(F("Ready"));
 }
@@ -289,12 +291,11 @@ void loop()
     }
 
     // Echo в Blynk терминал
-    terminal.print(F("rx>"));
-    terminal.print(command);
-    terminal.flush();
+    // terminal.print(F("rx>"));
+    // terminal.print(command);
+    // terminal.flush();
 
     doCommand(command, true);
-    
   }
 
   // Обработка кнопок
@@ -403,7 +404,20 @@ void doCommand(const String &command, bool isPrint)
     ledDevice_1.off();
     ledDevice_2.on();
     updateLeds();
+    setMaxVoltage(data.voltage_in / 100);
+    setMaxCurrent(DPS_2_CURRENT_MAX);
     if (isPrint) Serial.println(F(RESPONCE_SELECT_DEVICE_2)); 
+    // set slider
+    uint8_t result = modBus.readHoldingRegisters(DPS_REG_VOLTAGE_SET, 0);
+    if (result == modBus.ku8MBSuccess)
+    {
+      uint16_t val = modBus.getResponseBuffer(0);
+      Blynk.virtualWrite(PIN_SELECT_VOLTAGE, val / 100);
+    }
+    else
+    {
+      printError('B', result);
+    }
   }
   else if (command == F(CMD_SELECT_DPS_1))
   {
@@ -414,7 +428,20 @@ void doCommand(const String &command, bool isPrint)
     ledDevice_1.on();
     ledDevice_2.off();
     updateLeds();
+    setMaxVoltage(data.voltage_in / 100);
+    setMaxCurrent(DPS_2_CURRENT_MAX);
     if (isPrint) Serial.println(F(RESPONCE_SELECT_DEVICE_1));
+     // set slider
+    uint8_t result = modBus.readHoldingRegisters(DPS_REG_CURRENT_SET, 0);
+    if (result == modBus.ku8MBSuccess)
+    {
+      uint16_t val = modBus.getResponseBuffer(0);
+      Blynk.virtualWrite(PIN_SELECT_CURRENT, val / 100);
+    }
+    else
+    {
+      printError('B', result);
+    }
   }
   
   // Accumulator 1
@@ -481,32 +508,32 @@ void updateDataCallback()
 }
 
 
-// void setMaxVoltage(double max)
-// {
-//   Blynk.setProperty(PIN_SELECT_VOLTAGE, F("max"), (int)(max - SELECT_VOLTAGE_MAX_LOWER));
-//   // if (data.current_set < max * 100)
-//   // {
-//   //   uint8_t result = modBus.writeSingleRegister(DPS_REG_VOLTAGE_SET, max * 100);
-//   //   if (result != modBus.ku8MBSuccess)
-//   //   {
-//   //     printError('C', result);
-//   //   }
-//   // }
-// }
+void setMaxVoltage(double max)
+{
+  Blynk.setProperty(PIN_SELECT_VOLTAGE, F("max"), (int)(max - SELECT_VOLTAGE_MAX_LOWER));
+  // if (data.current_set < max * 100)
+  // {
+  //   uint8_t result = modBus.writeSingleRegister(DPS_REG_VOLTAGE_SET, max * 100);
+  //   if (result != modBus.ku8MBSuccess)
+  //   {
+  //     printError('C', result);
+  //   }
+  // }
+}
 
 
-// void setMaxCurrent(int max)
-// {
-//   Blynk.setProperty(PIN_SELECT_CURRENT, F("max"), max);
-//   // if (data.current_set < max * 100)
-//   // {
-//   //   uint8_t result = modBus.writeSingleRegister(DPS_REG_CURRENT_SET, max * 100);
-//   //   if (result != modBus.ku8MBSuccess)
-//   //   {
-//   //     printError('D', result);
-//   //   }
-//   // }
-// }
+void setMaxCurrent(int max)
+{
+  Blynk.setProperty(PIN_SELECT_CURRENT, F("max"), max);
+  // if (data.current_set < max * 100)
+  // {
+  //   uint8_t result = modBus.writeSingleRegister(DPS_REG_CURRENT_SET, max * 100);
+  //   if (result != modBus.ku8MBSuccess)
+  //   {
+  //     printError('D', result);
+  //   }
+  // }
+}
 
 
 void toggleCharging(bool *pfCharging)
@@ -534,9 +561,9 @@ void toggleCharging(bool *pfCharging)
 
 void printError(char letter, uint8_t errorCode)
 {
-  terminal.print(F("ModBus Error "));
-  terminal.print(letter);
-  terminal.print(F("-"));
-  terminal.println(errorCode, HEX);
-  terminal.flush();
+//   terminal.print(F("ModBus Error "));
+//   terminal.print(letter);
+//   terminal.print(F("-"));
+//   terminal.println(errorCode, HEX);
+//   terminal.flush();
 }
